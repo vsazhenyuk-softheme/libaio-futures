@@ -524,7 +524,7 @@ impl Drop for AIOManager {
 
 pub struct AIOBatchSchedulerIn {
     queue_in: crossbeam_channel::Sender<AtomicPtr<abi::IOCb>>,
-    last_id: std::cell::Cell<u64>,
+    last_id: std::sync::atomic::AtomicU64,
 }
 
 pub struct AIOBatchSchedulerOut {
@@ -547,9 +547,7 @@ impl AIOBatchSchedulerIn {
     }
 
     fn next_id(&self) -> u64 {
-        let id = self.last_id.get();
-        self.last_id.set(id.wrapping_add(1));
-        id
+        self.last_id.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -608,7 +606,7 @@ fn new_batch_scheduler(
     let (queue_in, queue_out) = crossbeam_channel::unbounded();
     let bin = AIOBatchSchedulerIn {
         queue_in,
-        last_id: std::cell::Cell::new(0),
+        last_id: std::sync::atomic::AtomicU64::new(0u64)
     };
     let bout = AIOBatchSchedulerOut {
         queue_out,
